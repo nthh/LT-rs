@@ -1,0 +1,21 @@
+# Dependencies for the validation/fetch harness in python/.
+# The lt_rust package itself needs only numpy; these are for reproducing the
+# canonical example and the GEE comparison. Install: pip install -r python/requirements.txt
+
+numpy
+matplotlib
+pillow
+
+# fetch_nbr.py — Landsat read via rasterio + Microsoft Planetary Computer STAC
+rasterio
+pystac-client
+planetary-computer
+pyproj
+
+# gee_truth.py — native GEE LandTrendr reference (optional; needs an Earth Engine account)
+earthengine-api
+
+# fetch_nbr_lazycogs.py — GDAL-free read path (optional; Python 3.13 only)
+rustac
+lazycogs
+obstore

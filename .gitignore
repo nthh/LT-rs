@@ -1,0 +1,14 @@
+/target
+**/__pycache__
+*.pyc
+.venv
+*.whl
+.DS_Store
+
+# lazycogs A/B (Python 3.13 venv + ephemeral geoparquet)
+.venv-lazy
+data/_*.parquet
+
+# regenerable raster/array caches (fetch_nbr.py / gee_dist_map.py); kept: gee_truth.json
+data/*.tif
+data/*.npz

@@ -1,0 +1,126 @@
+name: Release
+
+# Build abi3 wheels (one per platform, CPython >=3.10) + sdist and attach them to a
+# GitHub Release. Researchers then install with NO Rust toolchain:
+#
+#   pip install LT-rust --find-links https://github.com/<owner>/LT-rust/releases/latest
+#
+# Publishing to PyPI is intentionally NOT enabled here — see the commented `pypi`
+# job at the bottom. The natural owner of the LandTrendr family on PyPI is eMapR;
+# whoever owns this repo can enable that job under their own account.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:        # lets you build wheels on demand without tagging
+
+permissions:
+  contents: write           # needed to create the Release and upload assets
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Build wheels (abi3)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --features python
+          manylinux: auto
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.target }}
+          path: dist
+
+  macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Build wheels (abi3)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --features python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.target }}
+          path: dist
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Build wheels (abi3)
+        uses: PyO3/maturin-action@v1
+        with:
+          args: --release --out dist --features python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows
+          path: dist
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist
+
+  release:
+    name: Attach to GitHub Release
+    runs-on: ubuntu-latest
+    needs: [linux, macos, windows, sdist]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: List artifacts
+        run: ls -la dist
+      - name: Create / update the release and upload wheels
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+
+  # ---------------------------------------------------------------------------
+  # PyPI publishing — DISABLED. Enable after handoff, under the owning org's
+  # account, via PyPI Trusted Publishing (no API token needed):
+  #   1. Create the project on PyPI (or let the first publish create it).
+  #   2. PyPI -> project -> Publishing -> add a GitHub trusted publisher for this
+  #      repo + workflow `release.yml` + environment `pypi`.
+  #   3. Uncomment the job below and add `id-token: write` to top-level permissions.
+  #
+  # pypi:
+  #   name: Publish to PyPI
+  #   runs-on: ubuntu-latest
+  #   needs: [linux, macos, windows, sdist]
+  #   if: startsWith(github.ref, 'refs/tags/')
+  #   environment: pypi
+  #   permissions:
+  #     id-token: write
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #       with: { path: dist, merge-multiple: true }
+  #     - uses: pypa/gh-action-pypi-publish@release/v1
