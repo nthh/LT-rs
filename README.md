@@ -32,6 +32,13 @@ Every `LandTrendr.js` runParam is a keyword with the same name and default
 `vertex_count_overshoot=3`, `prevent_one_year_recovery=True`). For a whole raster
 stack, use `lt.landtrendr_flat(...)`.
 
+Two raster functions feed the eMapR forest-loss ensemble:
+`lt.landtrendr_ftvdiff_flat(data, n_pixels, n_years, years, target_year)` is the
+per-year FTV-diff loss signal (eMapR `getLtFtvDiff`), and
+`lt.landtrendr_loss_window(..., target_year, half_window)` sums loss over a window
+for higher recall when a disturbance is fit as a multi-year ramp. All four take the
+same runParam keywords.
+
 ## Validated against native GEE
 
 Fed the same source series, the Rust fit tracks Earth Engine's LandTrendr and lands the
