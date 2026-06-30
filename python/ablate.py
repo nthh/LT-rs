@@ -2,18 +2,18 @@
 """How close is our LandTrendr, and which knob drives the gap?
 
 Two parts, both on GEE's OWN source series (algorithm isolated from compositing),
-over all 5 GEE-truth pixels (canonical + 4 neighbors). Truth: data/gee_truth.json.
+over all 5 GEE-truth pixels (center + 4 neighbors). Truth: data/gee_truth.json.
 
-  1. BASELINE  — our kernel at canonical params vs GEE, averaged over the 5 pixels:
+  1. BASELINE  — our kernel at standard params vs GEE, averaged over the 5 pixels:
                  vertex Jaccard, fitted MAD (NBRx1000), disturbance-depth capture.
-  2. ABLATION  — sweep each parameter one at a time (others at canonical default)
+  2. ABLATION  — sweep each parameter one at a time (others at standard default)
                  and report the same three metrics, to localize the divergence.
 
 Hypothesis (from VALIDATION.md Findings 1-3): the disturbance depth is under-
 captured because the fit smooths the sharp single-year trough. Prime suspects are
 `spike_threshold` (despike) and `prevent_one_year_recovery`; if relaxing either
 recovers depth, that localizes it. best_model_proportion / p_value are expected
-to be ~neutral (shown output-neutral at the canonical pixel).
+to be ~neutral (shown output-neutral at the reference pixel).
 
 NOTE: 5 pixels around ONE site is a localization probe, not a multi-site
 validation. A real refit needs GEE truth over >=3 sites (a billed GEE run).
@@ -80,8 +80,8 @@ def show(label, params):
 
 
 print(f"5 pixels: {[p['name'] for p in PX]}\n")
-print("=== BASELINE (canonical params, our kernel on GEE source) ===")
-show("canonical default", CANON)
+print("=== BASELINE (standard params, our kernel on GEE source) ===")
+show("standard default", CANON)
 
 SWEEPS = {
     "spike_threshold":        [0.75, 0.85, 0.90, 0.95, 1.00],
@@ -94,7 +94,7 @@ SWEEPS = {
 }
 
 for knob, vals in SWEEPS.items():
-    print(f"\n=== ablate {knob} (others canonical) ===")
+    print(f"\n=== ablate {knob} (others reference) ===")
     for v in vals:
         params = dict(CANON); params[knob] = v
         tag = f"{knob}={v}" + ("  <- default" if CANON[knob] == v else "")

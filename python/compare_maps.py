@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LT-GEE paper Figure 5, for our port: year-of-disturbance, GEE vs folia/Rust,
+"""LT-GEE paper Figure 5, for our port: year-of-disturbance, GEE vs LT-rust,
 on the SAME GEE composites + the Table-2-style agreement.
 
 Reads gee_source.tif (the GEE composite NBR stack) and gee_distyear.tif (GEE's
@@ -42,7 +42,7 @@ gee_mag = dy.read(2).astype(float)                       # NBRx1000 loss-up step
 gee_year = np.where(gee_mag >= DELTA * 1000, gee_year, np.nan)
 
 # Rust LandTrendr on the identical GEE composites (NBR scale, like compare.py).
-folia_year = np.full((H, W), np.nan)
+rust_year = np.full((H, W), np.nan)
 for r in range(H):
     for c in range(W):
         s = (src[:, r, c] / 1000.0).astype(np.float32)
@@ -52,19 +52,19 @@ for r in range(H):
         d = np.diff(np.asarray(fit))
         i = int(np.argmin(d))
         if d[i] < -DELTA:
-            folia_year[r, c] = years[i + 1]
+            rust_year[r, c] = years[i + 1]
 
-gd, fd = np.isfinite(gee_year), np.isfinite(folia_year)
+gd, fd = np.isfinite(gee_year), np.isfinite(rust_year)
 both = gd & fd
 iou = both.sum() / max(1, (gd | fd).sum())
-yr_within1 = float((np.abs(gee_year[both] - folia_year[both]) <= 1).mean()) if both.any() else float("nan")
+yr_within1 = float((np.abs(gee_year[both] - rust_year[both]) <= 1).mean()) if both.any() else float("nan")
 overall = (both.sum() + (~gd & ~fd).sum()) / (H * W)
 
 cmap = LinearSegmentedColormap.from_list("dy", ["#2a9d8f", "#e9c46a", "#e76f51"])
 cmap.set_bad("#0a0a0a")
 fig, axes = plt.subplots(1, 2, figsize=(11, 5.6))
 im = None
-for ax, (lab, arr) in zip(axes, [("LT-GEE", gee_year), ("LT-Folia (Rust)", folia_year)]):
+for ax, (lab, arr) in zip(axes, [("LT-GEE", gee_year), ("LT-rust", rust_year)]):
     ax.set_facecolor("#0a0a0a")
     im = ax.imshow(np.ma.masked_invalid(arr), cmap=cmap, vmin=START, vmax=END, interpolation="nearest")
     ax.set_title(lab, fontsize=12); ax.set_xticks([]); ax.set_yticks([])
@@ -77,10 +77,10 @@ fig.suptitle(
     f"Year of disturbance on the same GEE composites - {LABEL}\n"
     f"disturbed IoU {iou:.2f}  |  year-within-1yr (co-detected) {yr_within1:.2f}  |  overall pixel agreement {overall:.2f}",
     fontsize=10)
-out = ROOT / (f"gee_vs_folia_distyear.png" if TAG == "gee" else f"{TAG}_compare.png")
+out = ROOT / (f"gee_vs_rust_distyear.png" if TAG == "gee" else f"{TAG}_compare.png")
 fig.savefig(out, dpi=130, facecolor="white", bbox_inches="tight")
 print(f"wrote {out.name}")
-print(f"GEE disturbed {gd.mean()*100:.0f}%  folia disturbed {fd.mean()*100:.0f}%  "
-      f"both {int(both.sum())}  GEE-only {int((gd&~fd).sum())}  folia-only {int((~gd&fd).sum())}")
+print(f"GEE disturbed {gd.mean()*100:.0f}%  rust disturbed {fd.mean()*100:.0f}%  "
+      f"both {int(both.sum())}  GEE-only {int((gd&~fd).sum())}  rust-only {int((~gd&fd).sum())}")
 print(f"RESULT\t{TAG}\t{LABEL}\tIoU={iou:.2f}\tyr_within1={yr_within1:.2f}\toverall={overall:.2f}"
-      f"\tgee_dist%={gd.mean()*100:.0f}\tfolia_dist%={fd.mean()*100:.0f}")
+      f"\tgee_dist%={gd.mean()*100:.0f}\trust_dist%={fd.mean()*100:.0f}")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """GDAL-free annual NBR fetch: rustac + lazycogs (A/B vs the rasterio path).
 
-Same canonical AOI, same QA-mask + NBR + annual-median reduce as fetch_nbr.py, but
+Same reference AOI, same QA-mask + NBR + annual-median reduce as fetch_nbr.py, but
 the READ layer is the Rust-native stack instead of rasterio/GDAL:
 
   rustac.search   STAC API -> items            (rustac, the rustac/stac-geoparquet tool)
@@ -109,5 +109,5 @@ if ras.exists():
     a = np.array([annual[years.index(y), 26, 26] for y in common]) * 1000
     b = np.array([ra[list(ry).index(y), 26, 26] for y in common]) * 1000
     m = np.isfinite(a) & np.isfinite(b)
-    print(f"\n[A/B canonical pixel] lazycogs vs rasterio: overlap {m.sum()} yrs  "
+    print(f"\n[A/B reference pixel] lazycogs vs rasterio: overlap {m.sum()} yrs  "
           f"corr {np.corrcoef(a[m], b[m])[0,1]:.4f}  MAD {np.mean(np.abs(a[m]-b[m])):.1f} NBRx1000")

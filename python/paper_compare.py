@@ -8,7 +8,7 @@ The paper benchmarks LT-GEE against LT-IDL with:
   - for co-detected disturbance: agreement on the disturbance YEAR (">97%")
 
 We compute the same over our 5 GEE-truth pixels (our kernel on GEE's own source,
-canonical params), so the numbers are directly comparable to the paper's bar.
+standard params), so the numbers are directly comparable to the paper's bar.
 
 NOTE: 5 pixels at one site is far thinner than the paper's 6 x ~184km regions.
 This is indicative, not a regional reproduction.
@@ -69,7 +69,7 @@ for p in GEE["pixels"]:
     print(f"{p['name']:>10} {gvc:>6} {rvc:>6} {rvc-gvc:>+5} "
           f"{str(gy):>6} {str(ry):>6} {'Y' if match else 'n':>4} {mae_pct:>5.1f}")
 
-print("\n--- paper's metrics, our 5 pixels (canonical params, GEE source) ---")
+print("\n--- paper's metrics, our 5 pixels (standard params, GEE source) ---")
 print(f"mean |vertex-count diff| : {np.mean(np.abs(cnt_diffs)):.1f}  "
       f"(exact-count match: {sum(d==0 for d in cnt_diffs)}/5)")
 print(f"MAE as % of NBR range    : {np.mean(mae_pcts):.2f}%   (paper bar: <3% for 5/6 regions)")

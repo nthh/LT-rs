@@ -14,7 +14,7 @@
   "note": "GEE native LandTrendr on GEE's own filterBounds composites; NBRx1000 (loss-down)",
   "pixels": [
     {
-      "name": "canonical",
+      "name": "center",
       "years": [
         1984,
         1985,

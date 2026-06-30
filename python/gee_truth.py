@@ -34,12 +34,12 @@ years = z["years"].astype(int)
 W, S, E, N = [float(v) for v in z["bbox"]]
 region = ee.Geometry.Rectangle([W, S, E, N])
 START, END = int(years[0]), int(years[-1])
-# canonical pixel (26,26) + 4 neighbors, as lon/lat from the npz transform
+# reference pixel (26,26) + 4 neighbors, as lon/lat from the npz transform
 from rasterio.transform import Affine, xy
 T = Affine(*z["transform"])
 from pyproj import Transformer
 to_ll = Transformer.from_crs("EPSG:32610", "EPSG:4326", always_xy=True)
-PIX = {"canonical": (26, 26), "n_up": (25, 26), "n_down": (27, 26),
+PIX = {"center": (26, 26), "n_up": (25, 26), "n_down": (27, 26),
        "n_left": (26, 25), "n_right": (26, 27)}
 def pix_lonlat(r, c):
     x, y = xy(T, r, c)            # UTM center
@@ -143,4 +143,4 @@ for name in PIX:
 out["vertex_years"] = out["pixels"][0]["vertex_years"] if out["pixels"] else []
 json.dump(out, open(OUT, "w"), indent=2)
 print(f"\nsaved {OUT.name}: {len(out['pixels'])} pixels in {time.time()-t0:.0f}s")
-print(f"canonical GEE vertices: {out['vertex_years']}")
+print(f"center GEE vertices: {out['vertex_years']}")

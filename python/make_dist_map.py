@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Year-of-disturbance map (the folia/lt-rust side of LT-GEE paper Figure 5).
+"""Year-of-disturbance map (the LT-rust side of LT-GEE paper Figure 5).
 
 Runs LandTrendr per pixel over the cached NBR box, takes the year of the largest
 fitted NBR drop as the disturbance year (masking pixels with no significant drop),
@@ -60,12 +60,12 @@ bar_px = 300.0 / px_m
 ax.plot([3, 3 + bar_px], [H - 4, H - 4], color="white", lw=3)
 ax.text(3 + bar_px / 2, H - 5.5, "300 m", color="white", ha="center", va="bottom", fontsize=9)
 
-ax.set_title("Folia LandTrendr - year of disturbance\nOregon Coast Range (canonical pixel box)",
+ax.set_title("LT-rust LandTrendr - year of disturbance\nOregon Coast Range (validation box)",
              fontsize=10)
 cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, ticks=[1985, 1995, 2005, 2016])
 cb.set_label("year of disturbance")
 fig.tight_layout()
-out = ROOT / "folia_disturbance_year.png"
+out = ROOT / "rust_disturbance_year.png"
 fig.savefig(out, dpi=130, facecolor="white")
 print(f"wrote {out.name}  |  disturbed {int(np.isfinite(dist_year).sum())}/{H*W} px  "
       f"| pixel {px_m:.0f} m | years {years[0]}-{years[-1]}")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproduce the canonical LandTrendr example (LT-GEE Fig 2.1) with LT-rust.
+"""Reproduce the reference LandTrendr example (LT-GEE Fig 2.1) with LT-rust.
 
 The textbook pixel: Lon -123.845, Lat 45.889 (Oregon Coast Range, conifer-dominated
 industrial forest): ~17 years stable mature conifer (1984-2000), a service road in
@@ -171,7 +171,7 @@ def main():
     series = annual[:, r, c].astype(np.float32)
     print(f"\n[pixel] {LON},{LAT} -> grid ({r},{c}) of {H}x{W}")
 
-    # canonical LT-GEE defaults (emapr.github.io/LT-GEE/running-lt-gee.html):
+    # standard LT-GEE defaults (emapr.github.io/LT-GEE/running-lt-gee.html):
     # maxSegments 6, spike 0.9, vertexCountOvershoot 3, preventOneYearRecovery true,
     # recovery 0.25, pval 0.05, bestModelProportion 0.75, minObs 6. (overshoot +
     # preventOneYearRecovery are the Rust defaults.) NBR is loss-DOWN, which matches
@@ -208,7 +208,7 @@ def main():
                 [fit[i]*1000 for i in range(len(years)) if vtx[i]],
                 "s", color="#c53030", ms=7, label="vertices")
         ax.set_xlabel("year"); ax.set_ylabel("NBR x1000"); ax.set_title(
-            f"LandTrendr canonical pixel {LON},{LAT} (LT-rust)")
+            f"LandTrendr reference pixel {LON},{LAT} (LT-rust)")
         ax.legend(frameon=False); ax.grid(alpha=0.2); fig.tight_layout()
         out = HERE / "fig21.png"; fig.savefig(out, dpi=120)
         print(f"[plot] {out.name}")

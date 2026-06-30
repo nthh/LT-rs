@@ -5,7 +5,7 @@ Produces the GEE side of the LT-GEE paper's Figure 5 comparison: it runs the
 native GEE LandTrendr (ee.Algorithms.TemporalSegmentation.LandTrendr, the same
 engine eMapR's LandTrendr.js wraps) and exports the per-year FITTED and SOURCE
 NBR as GeoTIFF stacks. Disturbance-year extraction is then done locally and
-*identically* for GEE and for the Rust/folia kernel (see compare_maps.py), so the
+*identically* for GEE and for the LT-rust kernel (see compare_maps.py), so the
 two maps differ only by the segmentation, not by the change-extraction logic.
 
 Self-contained: needs only `earthengine-api` + an authenticated EE account.
@@ -26,7 +26,7 @@ ee.Initialize(project=_proj) if _proj else ee.Initialize()
 # Edit AOI / window here, or override per run with env vars LT_AOI (JSON bbox),
 # LT_TAG (output prefix), LT_START, LT_END (used by the multi-site batch).
 AOI = json.loads(os.environ["LT_AOI"]) if os.environ.get("LT_AOI") else \
-    [-123.855, 45.882, -123.835, 45.896]     # ~1.5 km Oregon Coast Range (canonical box)
+    [-123.855, 45.882, -123.835, 45.896]     # ~1.5 km Oregon Coast Range (reference box)
 TAG = os.environ.get("LT_TAG", "gee")        # outputs data/<TAG>_source.tif, <TAG>_distyear.tif
 START = int(os.environ.get("LT_START", 1984))
 END = int(os.environ.get("LT_END", 2016))
@@ -36,7 +36,7 @@ COMPOSITE = "median"          # paper uses medoid; median is simpler + matches o
 # the 50 MB getDownloadURL limit). For large AOIs use ee.batch.Export instead.
 CRS = "EPSG:32610"
 SCALE = 30
-# LT-GEE canonical runParams (Kennedy et al. 2018, Table 1; +preventOneYearRecovery).
+# LT-GEE standard runParams (Kennedy et al. 2018, Table 1; +preventOneYearRecovery).
 RUN = dict(maxSegments=6, spikeThreshold=0.9, vertexCountOvershoot=3,
            preventOneYearRecovery=True, recoveryThreshold=0.25, pvalThreshold=0.05,
            bestModelProportion=0.75, minObservationsNeeded=6)
