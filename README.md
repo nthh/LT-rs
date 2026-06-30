@@ -10,7 +10,7 @@ Prebuilt wheels (CPython ≥3.10, incl. 3.14) are attached to each
 [release](../../releases) — no Rust toolchain needed:
 
 ```bash
-pip install LT-rust --find-links https://github.com/nthh/LT-rust/releases/latest
+pip install LT-rust --find-links https://github.com/nthh/LT-rust/releases/expanded_assets/v0.2.0
 ```
 
 ## Use
