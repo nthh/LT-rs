@@ -19,12 +19,17 @@ pip install LT-rust --find-links https://github.com/nthh/LT-rust/releases/latest
 ```python
 import numpy as np, lt_rust as lt
 
-nbr   = np.array([...], dtype=np.float32)        # one annual value per year (NaN = gap)
-years = np.arange(1984, 2017, dtype=np.int32)
+box   = np.load("data/nbr_1984_2016.npz")        # bundled Landsat NBR box (Oregon Coast Range)
+nbr   = np.ascontiguousarray(box["annual"][:, 26, 26], np.float32)   # center pixel; NaN = cloud gap
+years = box["years"]                             # 1984..2016
 
 fitted, is_vertex, rmse = lt.landtrendr_pixel(nbr, years)   # LT-GEE default runParams
-breakpoints = years[is_vertex.astype(bool)]
+breakpoints = years[is_vertex.astype(bool)]      # [1984, 1985, 2000, 2001, 2002, 2008, 2016]
 ```
+
+That pixel is a conifer stand clearcut around 2001 — the fit bottoms out at 2002, then
+recovers through 2016. (Installed via `pip` without the repo? Pass your own per-year NBR
+array — loss-down `float32`, `NaN` for cloud gaps — in place of the bundled box.)
 
 Every `LandTrendr.js` runParam is a keyword with the same name and default
 (`max_segments=6`, `spike_threshold=0.9`, `recovery_threshold=0.25`,
@@ -49,9 +54,10 @@ disturbance vertex on the same year — here on the LT-GEE Fig 2.1 example pixel
 
 ```bash
 pip install -r python/requirements.txt
-python python/fetch_nbr.py     # Landsat annual NBR composites from cloud-native COGs
-python python/gee_truth.py     # native GEE LandTrendr reference (needs an EE account)
-python python/compare.py       # overlay + vertex agreement -> compare_gee_vs_rust.png
+python python/compare.py       # runs on the bundled NBR box + GEE truth -> compare_gee_vs_rust.png
+# data/ ships the NBR box and GEE truth; to regenerate them yourself:
+#   python python/fetch_nbr.py   # Landsat NBR composites from cloud-native COGs
+#   python python/gee_truth.py   # native GEE LandTrendr reference (needs an EE account)
 ```
 
 ### Raster scale, across land covers
@@ -72,8 +78,10 @@ cases the paper's two implementations also diverged on).
 ![GEE vs Rust year-of-disturbance, Oregon Coast Range](gee_vs_rust_distyear.png)
 
 ```bash
-EE_PROJECT=<proj> python python/gee_dist_map.py  # GEE LandTrendr -> source + disturbance-year GeoTIFFs (edit AOI at top)
-python python/compare_maps.py                     # Rust on the same composites -> two-panel map + agreement
+python python/compare_maps.py            # Rust on the bundled GEE composites -> two-panel map + agreement
+python python/idl_vs_gee_vs_rust_map.py  # 3-panel LT-IDL vs LT-GEE vs LT-rust per scene (needs GDL)
+# the scene rasters ship in data/; regenerate them with:
+#   EE_PROJECT=<proj> python python/gee_dist_map.py   # GEE source + disturbance GeoTIFFs (edit AOI at top)
 ```
 
 Forest sits at the paper's bar. Cropland's disturbed-pixel IoU drops (sparse, noisy

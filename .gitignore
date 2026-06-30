@@ -9,9 +9,10 @@
 .venv-lazy
 data/_*.parquet
 
-# regenerable raster/array caches (fetch_nbr.py / gee_dist_map.py); kept: gee_truth.json
-data/*.tif
-data/*.npz
+# bundled test fixtures are tracked (scene rasters + the NBR box) so the examples
+# and validation run without a re-fetch; only the redundant lazycogs A/B duplicate
+# and parquet scratch are ignored
+data/nbr_lazycogs.npz
 
 # generated per-scene comparison figures (python/compare_maps.py)
 *_compare.png
