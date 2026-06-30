@@ -163,7 +163,7 @@ def run_scene(tag, scene, label):
                  fontsize=12)
     cb = fig.colorbar(im, ax=axes, fraction=0.025, pad=0.02, ticks=[1985, 1995, 2005, 2016])
     cb.set_label("year of disturbance")
-    out_png = ROOT / f"{scene}_idl_gee_rust_distyear.png"
+    out_png = ROOT / "images" / f"{scene}_idl_gee_rust.png"
     fig.savefig(out_png, dpi=130, facecolor="white", bbox_inches="tight")
     plt.close(fig)
     print(f"[{scene}] wrote {out_png.name}\n")

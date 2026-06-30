@@ -202,7 +202,7 @@ def main():
         ax.annotate(f"trough: GEE {gtr:.0f} · IDL {itr:.0f} · rust {rtr:.0f}",
                     xy=(0.98, 0.04), xycoords="axes fraction", ha="right",
                     fontsize=10, color="0.3")
-        out = Path.home() / "Downloads" / "landtrendr_idl_vs_gee_vs_rust.png"
+        out = ROOT / "images" / "idl_gee_rust_pixel.png"
         fig.tight_layout()
         fig.savefig(out, dpi=130)
         print(f"\nwrote {out}")

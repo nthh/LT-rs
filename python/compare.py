@@ -120,7 +120,7 @@ try:
     ax.set_xlabel("year"); ax.set_ylabel("NBR x1000")
     ax.set_title(f"LandTrendr @ reference pixel {LON},{LAT} — GEE vs Rust(GEE src) vs Rust(our NBR)")
     ax.legend(frameon=False, fontsize=9); ax.grid(alpha=0.2); fig.tight_layout()
-    out = ROOT / "compare_gee_vs_rust.png"; fig.savefig(out, dpi=120)
+    out = ROOT / "images" / "compare_gee_vs_rust.png"; fig.savefig(out, dpi=120)
     print(f"\n[plot] {out.name}")
 except Exception as e:
     print(f"[plot] skipped ({e})")

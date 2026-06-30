@@ -14,5 +14,10 @@ data/_*.parquet
 # and parquet scratch are ignored
 data/nbr_lazycogs.npz
 
-# generated per-scene comparison figures (python/compare_maps.py)
-*_compare.png
+# figures live in images/: commit the IDL 3-way pixel chart + per-scene 3-panel maps;
+# everything else there is regenerable (2-panel compares, single-pixel overlay, dist map)
+images/*
+!images/idl_gee_rust_pixel.png
+!images/forest_idl_gee_rust.png
+!images/cropland_idl_gee_rust.png
+!images/arid_idl_gee_rust.png

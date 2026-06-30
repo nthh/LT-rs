@@ -1,9 +1,8 @@
 # LT-rust
 
-A Rust implementation of **LandTrendr** (Kennedy et al. 2010), alongside LT-IDL and
-LT-GEE. A pixel's annual spectral-index trajectory goes in; the fitted trajectory and
-disturbance/recovery breakpoints come out. The same kernel runs locally, in a Python
-worker, or in the browser via WASM.
+Rust **LandTrendr** (Kennedy 2010/2018), validated against the original LandTrendr-IDL
+and Google Earth Engine. A pixel's annual NBR trajectory in, the fitted trajectory and
+disturbance/recovery breakpoints out. One kernel for local, Python (PyO3), and browser (WASM).
 
 ## Install
 
@@ -44,73 +43,47 @@ per-year FTV-diff loss signal (eMapR `getLtFtvDiff`), and
 for higher recall when a disturbance is fit as a multi-year ramp. All four take the
 same runParam keywords.
 
-## Validated against native GEE
+## Validated against GEE and the original LT-IDL
 
-Fed the same source series, the Rust fit tracks Earth Engine's LandTrendr and lands the
-disturbance vertex on the same year — here on the LT-GEE Fig 2.1 example pixel
-(−123.845, 45.889): mature conifer, clearcut in 2001, regrowth to 2016.
+GEE is itself a translation of the original IDL LandTrendr, so we validate against both.
+Fed the same NBR series, the Rust fit tracks Earth Engine's LandTrendr *and* the source
+IDL, landing the disturbance vertex on the same year — here the LT-GEE Fig 2.1 example
+pixel (mature conifer, clearcut 2001, regrowth to 2016):
 
-![GEE vs LT-rust on the Fig 2.1 pixel](compare_gee_vs_rust.png)
+![LT-IDL vs LT-GEE vs LT-rust on the Fig 2.1 pixel](images/idl_gee_rust_pixel.png)
 
-```bash
-pip install -r python/requirements.txt
-python python/compare.py       # runs on the bundled NBR box + GEE truth -> compare_gee_vs_rust.png
-# data/ ships the NBR box and GEE truth; to regenerate them yourself:
-#   python python/fetch_nbr.py   # Landsat NBR composites from cloud-native COGs
-#   python python/gee_truth.py   # native GEE LandTrendr reference (needs an EE account)
-```
+`python/idl_compare.py` runs the unmodified LandTrendr-2012 IDL (`fit_trajectory_v2` →
+`tbcd_v2`) under [GNU Data Language](https://github.com/gnudatalanguage/gdl); on the 5
+GEE-truth pixels **LT-IDL and LT-GEE agree on every vertex (5/5), fitted MAE 2.1 NBR×1000**
+— confirming GEE faithfully tracks IDL, and giving the white-box reference the port was
+debugged against, stage by stage.
 
 ### Raster scale, across land covers
 
-Beyond the single pixel, we run GEE LandTrendr and the Rust kernel on the **same**
-GEE annual composites over small AOIs and compare the per-pixel year of greatest
-disturbance. Agreement tracks the LT-GEE paper's own LT-GEE-vs-LT-IDL comparison
-(Kennedy et al. 2018, Table 2: 90–94% in forest) and reproduces its land-cover
-pattern: forest agrees closely, cropland and arid are harder (the despike-sensitive
-cases the paper's two implementations also diverged on).
+Running all three on the **same** GEE composites over small AOIs and comparing the
+per-pixel year of greatest disturbance (disturbed-pixel IoU + overall agreement):
 
-| site | land cover | overall pixel agreement | disturbed IoU | year-within-1yr |
-|---|---|---|---|---|
-| Oregon Coast Range | forest | 0.98 | 0.98 | 0.99 |
-| central Iowa | cropland | 0.95 | 0.61 | 0.97 |
-| northern Nevada | shrub / arid | 1.00 | n/a (no events) | n/a |
+| site | land cover | IoU rust–GEE | IoU IDL–GEE | IoU IDL–rust | overall |
+|---|---|---|---|---|---|
+| Oregon Coast Range | forest | 0.98 | 0.98 | 0.99 | 0.98 |
+| central Iowa | cropland | 0.61 | 0.69 | 0.67 | 0.95 |
+| northern Nevada | arid / shrub | — (no events) | — | — | 1.00 |
 
-![GEE vs Rust year-of-disturbance, Oregon Coast Range](gee_vs_rust_distyear.png)
+![LT-IDL vs LT-GEE vs LT-rust year-of-disturbance — Oregon Coast Range forest](images/forest_idl_gee_rust.png)
+![LT-IDL vs LT-GEE vs LT-rust year-of-disturbance — central Iowa cropland](images/cropland_idl_gee_rust.png)
+
+Forest matches closely on all three. On cropland even IDL and GEE only agree at 0.69 —
+annual harvest cycles are marginal signals for LandTrendr — and LT-rust tracks IDL to
+0.67, near that intrinsic ceiling; arid has no disturbance to find, so all three agree.
+The 3-panel maps come from `python/idl_vs_gee_vs_rust_map.py` (needs GDL; see `idl-harness/`).
 
 ```bash
-python python/compare_maps.py            # Rust on the bundled GEE composites -> two-panel map + agreement
-python python/idl_vs_gee_vs_rust_map.py  # 3-panel LT-IDL vs LT-GEE vs LT-rust per scene (needs GDL)
-# the scene rasters ship in data/; regenerate them with:
-#   EE_PROJECT=<proj> python python/gee_dist_map.py   # GEE source + disturbance GeoTIFFs (edit AOI at top)
+pip install -r python/requirements.txt
+python python/compare.py                  # single pixel: bundled NBR box + GEE truth
+python python/compare_maps.py             # raster: Rust vs GEE on the bundled composites
+python python/idl_vs_gee_vs_rust_map.py   # raster: LT-IDL vs LT-GEE vs LT-rust (needs GDL)
+# the bundled data regenerates with python/fetch_nbr.py and gee_dist_map.py (cloud COGs / EE account)
 ```
-
-Forest sits at the paper's bar. Cropland's disturbed-pixel IoU drops (sparse, noisy
-harvest signals) while overall agreement stays high; arid shrub has no disturbance
-to find in either, so the two agree completely.
-
-## Validated against the original LT-IDL
-
-GEE is itself a translation of the original IDL LandTrendr, so the *source* algorithm
-is the stronger reference. `python/idl_compare.py` runs the unmodified LandTrendr-2012
-IDL (`fit_trajectory_v2` → `tbcd_v2`) under [GNU Data Language](https://github.com/gnudatalanguage/gdl)
-on the same series. On the 5 GEE-truth pixels, **LT-IDL and LT-GEE agree on every
-vertex (5/5), mean fitted MAE 2.1 NBR×1000** — confirming GEE faithfully tracks IDL,
-and giving a white-box reference to debug the port against (every fix below was found
-by diffing rust against IDL stage by stage). The three-panel maps
-(`python/idl_vs_gee_vs_rust_map.py`) put all three side by side per scene:
-
-| scene | IoU IDL–GEE | IoU rust–GEE | IoU IDL–rust |
-|---|---|---|---|
-| forest | 0.98 | 0.98 | 0.99 |
-| cropland | 0.69 | 0.61 | 0.67 |
-| arid | — (no events) | — | — |
-
-![LT-IDL vs LT-GEE vs LT-rust year-of-disturbance, Oregon Coast Range](forest_idl_gee_rust_distyear.png)
-
-On cropland even IDL and GEE only agree at 0.69 — annual harvest cycles are marginal
-signals for LandTrendr — and LT-rust tracks IDL to 0.67, near that intrinsic ceiling.
-The harness needs the GDL app and the LandTrendr-2012 source on the GDL path; see
-`idl-harness/` for the two shim routines (`regress`, `f_test1`) the headless GDL build omits.
 
 ## Optional: GDAL-free data access
 

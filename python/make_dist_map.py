@@ -65,7 +65,7 @@ ax.set_title("LT-rust LandTrendr - year of disturbance\nOregon Coast Range (vali
 cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, ticks=[1985, 1995, 2005, 2016])
 cb.set_label("year of disturbance")
 fig.tight_layout()
-out = ROOT / "rust_disturbance_year.png"
+out = ROOT / "images" / "rust_disturbance_year.png"
 fig.savefig(out, dpi=130, facecolor="white")
 print(f"wrote {out.name}  |  disturbed {int(np.isfinite(dist_year).sum())}/{H*W} px  "
       f"| pixel {px_m:.0f} m | years {years[0]}-{years[-1]}")

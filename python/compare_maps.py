@@ -77,7 +77,7 @@ fig.suptitle(
     f"Year of disturbance on the same GEE composites - {LABEL}\n"
     f"disturbed IoU {iou:.2f}  |  year-within-1yr (co-detected) {yr_within1:.2f}  |  overall pixel agreement {overall:.2f}",
     fontsize=10)
-out = ROOT / (f"gee_vs_rust_distyear.png" if TAG == "gee" else f"{TAG}_compare.png")
+out = ROOT / "images" / (f"gee_vs_rust_distyear.png" if TAG == "gee" else f"{TAG}_compare.png")
 fig.savefig(out, dpi=130, facecolor="white", bbox_inches="tight")
 print(f"wrote {out.name}")
 print(f"GEE disturbed {gd.mean()*100:.0f}%  rust disturbed {fd.mean()*100:.0f}%  "
