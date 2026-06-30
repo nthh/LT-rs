@@ -33,8 +33,8 @@ impl Default for LandTrendrParams {
             spike_threshold: 0.9,
             vertex_count_overshoot: 3,
             recovery_threshold: 0.25,
-            p_value_threshold: 0.01,
-            best_model_proportion: 1.25,
+            p_value_threshold: 0.05,
+            best_model_proportion: 0.75,
             min_observations_needed: 6,
             prevent_one_year_recovery: true,
         }
