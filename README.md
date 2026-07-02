@@ -34,14 +34,14 @@ Every LandTrendr runParam maps to a snake_case keyword with the LT-GEE default
 (`max_segments=6`, `spike_threshold=0.9`, `recovery_threshold=0.25`,
 `p_value_threshold=0.05`, `best_model_proportion=0.75`, `min_observations_needed=6`,
 `vertex_count_overshoot=3`, `prevent_one_year_recovery=True`). For a whole raster
-stack, use `lt.flat(...)`.
+stack, `lt.flat(stack, years)` takes a `(n_pixels, n_years)` array and returns
+`(n_pixels, 4)` summary bands `[net_mag, year, rmse, peak_to_trough]`.
 
 Two raster functions feed the eMapR forest-loss ensemble:
-`lt.ftvdiff_flat(data, n_pixels, n_years, years, target_year)` is the
-per-year FTV-diff loss signal (eMapR `getLtFtvDiff`), and
-`lt.loss_window(..., target_year, half_window)` sums loss over a window
-for higher recall when a disturbance is fit as a multi-year ramp. All four take the
-same runParam keywords.
+`lt.ftvdiff_flat(stack, years, target_year)` is the per-year FTV-diff loss signal
+(eMapR `getLtFtvDiff`), and `lt.loss_window(stack, years, target_year, half_window)`
+sums loss over a window for higher recall when a disturbance is fit as a multi-year
+ramp. All four take the same runParam keywords.
 
 ## Validated against GEE and the original LT-IDL
 

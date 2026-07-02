@@ -11,6 +11,11 @@
 //!   Kennedy, R.E. et al. (2018). Implementation of the LandTrendr Algorithm on
 //!   Google Earth Engine. Remote Sensing 10(5), 691. https://doi.org/10.3390/rs10050691
 
+// Index loops deliberately mirror the LT-IDL reference line-for-line (easier to
+// diff against the original than iterator chains), and LandTrendr's 8 runParams
+// exceed clippy's argument-count budget by construction.
+#![allow(clippy::needless_range_loop, clippy::too_many_arguments)]
+
 // LandTrendr temporal segmentation
 // ---------------------------------------------------------------------------
 
@@ -255,11 +260,11 @@ fn betacf(a: f64, b: f64, x: f64) -> f64 {
 fn ln_gamma(x: f64) -> f64 {
     const G: f64 = 7.0;
     const COF: [f64; 9] = [
-        0.999_999_999_999_809_93,
+        0.999_999_999_999_809_9,
         676.520_368_121_885_1,
-        -1259.139_216_722_402_8,
-        771.323_428_777_653_13,
-        -176.615_029_162_140_59,
+        -1_259.139_216_722_402_8,
+        771.323_428_777_653_1,
+        -176.615_029_162_140_6,
         12.507_343_278_686_905,
         -0.138_571_095_265_720_12,
         9.984_369_578_019_572e-6,
@@ -938,9 +943,11 @@ fn pixel_core(
 ///   argmin(fitted); set to 0.0 when trough_idx <= peak_idx (monotonic rise / no
 ///   disturbance). This is the standard LandTrendr disturbance-depth statistic
 ///   and matches the validated Python path (extract.py in the Bootleg-MTBS run):
-///       peak_idx = argmax(fitted); trough_idx = argmin(fitted)
-///       magnitude = fitted[trough_idx] - fitted[peak_idx]   (<= 0)
-///       magnitude[trough_idx <= peak_idx] = 0.0
+///   ```text
+///   peak_idx = argmax(fitted); trough_idx = argmin(fitted)
+///   magnitude = fitted[trough_idx] - fitted[peak_idx]   (<= 0)
+///   magnitude[trough_idx <= peak_idx] = 0.0
+///   ```
 ///   Returns NaN for both magnitudes when the pixel has insufficient valid
 ///   observations (so callers can mask on isfinite, matching extract.py's
 ///   `magnitude[~valid] = NaN`).

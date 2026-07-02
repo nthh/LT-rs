@@ -39,8 +39,6 @@ def pixel_debug(
 
 def flat(
     data: NDArray[np.float32],
-    pixel_count: int,
-    band_count: int,
     years: NDArray[np.int32],
     max_segments: int = 6,
     spike_threshold: float = 0.9,
@@ -51,14 +49,11 @@ def flat(
     vertex_count_overshoot: int = 3,
     prevent_one_year_recovery: bool = True,
 ) -> NDArray[np.float32]:
-    """Raster-stack LandTrendr: 4 summary bands per pixel
-    [net_mag, year, rmse, peak_to_trough]. `data` is the pixel-major
-    flattened stack of length pixel_count * band_count."""
+    """Raster-stack LandTrendr. `data` has shape (n_pixels, n_years); returns
+    (n_pixels, 4) summary bands [net_mag, year, rmse, peak_to_trough]."""
 
 def ftvdiff_flat(
     data: NDArray[np.float32],
-    pixel_count: int,
-    band_count: int,
     years: NDArray[np.int32],
     target_year: int,
     max_segments: int = 6,
@@ -71,12 +66,11 @@ def ftvdiff_flat(
     prevent_one_year_recovery: bool = True,
 ) -> NDArray[np.float32]:
     """Per-pixel fitted change *in* `target_year` (eMapR getLtFtvDiff):
-    fitted[idx] - fitted[idx-1]. NaN where invalid."""
+    fitted[idx] - fitted[idx-1]. `data` has shape (n_pixels, n_years);
+    returns n_pixels values, NaN where invalid."""
 
 def loss_window(
     data: NDArray[np.float32],
-    pixel_count: int,
-    band_count: int,
     years: NDArray[np.int32],
     target_year: int,
     half_window: int = 1,
@@ -91,4 +85,5 @@ def loss_window(
 ) -> NDArray[np.float32]:
     """Windowed loss magnitude around `target_year`: sum of loss-direction
     fitted drops over [target_year - half_window, target_year + half_window].
-    Non-negative; NaN where invalid. half_window=0 is the single-year loss."""
+    `data` has shape (n_pixels, n_years); returns n_pixels non-negative values,
+    NaN where invalid. half_window=0 is the single-year loss."""
