@@ -877,9 +877,12 @@ fn pixel_core(
     // recovery so the recovery is forced to span >=2 years (loss-down NBR: a drop
     // into v[i] then a rise out of v[i] over one year). Done on the vertex set
     // before model fitting, so every candidate inherits the constraint.
+    // The endpoint vertex (n-1) is never removed — IDL segmentation always
+    // spans the full series, and dropping it would leave fitted[n-1] unwritten
+    // (net_change would then read a stale/zeroed workspace cell).
     if params.prevent_one_year_recovery {
         let mut i = 1;
-        while i + 1 < n_verts {
+        while i + 2 < n_verts {
             let (a, b, c) = (ws.vertices[i - 1], ws.vertices[i], ws.vertices[i + 1]);
             let drop_in = despiked[b] < despiked[a];          // disturbance into the bottom
             let rise_out = despiked[c] > despiked[b];          // recovery out of the bottom
@@ -1035,6 +1038,46 @@ fn pixel_summary(
 /// disturbance-depth statistic (fitted trough - fitted peak over the full
 /// trajectory; 0.0 for monotonic rises; NaN for under-observed pixels). See
 /// `pixel_summary` for the exact definition.
+/// Map `f(ts, ws)` over every pixel of a band-major stack, preserving pixel
+/// order. With the `parallel` feature this fans out across pixels via rayon
+/// (one workspace + gather buffer per worker); pixels are independent, so the
+/// results are bit-identical to the serial path.
+fn map_pixels<T, F>(data: &[f32], pixel_count: usize, band_count: usize, f: F) -> Vec<T>
+where
+    T: Send,
+    F: Fn(&[f32], &mut LandTrendrWorkspace) -> T + Sync + Send,
+{
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        (0..pixel_count)
+            .into_par_iter()
+            .map_init(
+                || (LandTrendrWorkspace::new(), vec![0.0f32; band_count]),
+                |(ws, ts), px| {
+                    for t in 0..band_count {
+                        ts[t] = data[t * pixel_count + px];
+                    }
+                    f(ts, ws)
+                },
+            )
+            .collect()
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        let mut ws = LandTrendrWorkspace::new();
+        let mut ts = vec![0.0f32; band_count];
+        (0..pixel_count)
+            .map(|px| {
+                for t in 0..band_count {
+                    ts[t] = data[t * pixel_count + px];
+                }
+                f(&ts, &mut ws)
+            })
+            .collect()
+    }
+}
+
 pub fn flat(
     data: &[f32],
     pixel_count: usize,
@@ -1044,53 +1087,30 @@ pub fn flat(
 ) -> Vec<f32> {
     // Fast path: zero-allocation workspace for supported time series lengths
     if band_count <= LT_MAX_N {
-        let mut magnitude_out = vec![0.0f32; pixel_count];
-        let mut year_out = vec![f32::NAN; pixel_count];
-        let mut rmse_out = vec![0.0f32; pixel_count];
-        let mut ptt_out = vec![f32::NAN; pixel_count];
-        let mut ws = LandTrendrWorkspace::new();
-        let mut ts = vec![0.0f32; band_count];
-
-        for px in 0..pixel_count {
-            for t in 0..band_count {
-                ts[t] = data[t * pixel_count + px];
-            }
-            let (mag, yr, rmse, ptt) =
-                pixel_summary(&ts, years, band_count, params, &mut ws);
-            magnitude_out[px] = mag;
-            year_out[px] = yr;
-            rmse_out[px] = rmse;
-            ptt_out[px] = ptt;
-        }
-
+        let results = map_pixels(data, pixel_count, band_count, |ts, ws| {
+            pixel_summary(ts, years, band_count, params, ws)
+        });
         let mut out = Vec::with_capacity(pixel_count * 4);
-        out.extend_from_slice(&magnitude_out);
-        out.extend_from_slice(&year_out);
-        out.extend_from_slice(&rmse_out);
-        out.extend_from_slice(&ptt_out);
+        out.extend(results.iter().map(|r| r.0));
+        out.extend(results.iter().map(|r| r.1));
+        out.extend(results.iter().map(|r| r.2));
+        out.extend(results.iter().map(|r| r.3));
         return out;
     }
 
-    // Fallback for time series longer than LT_MAX_N
-    let mut magnitude_out = vec![0.0f32; pixel_count];
-    let mut year_out = vec![f32::NAN; pixel_count];
-    let mut rmse_out = vec![0.0f32; pixel_count];
-    let mut ptt_out = vec![f32::NAN; pixel_count];
-    let mut ts = vec![0.0f32; band_count];
-
-    for px in 0..pixel_count {
-        for t in 0..band_count {
-            ts[t] = data[t * pixel_count + px];
-        }
-        let result = pixel(&ts, years, params);
+    // Fallback for time series longer than LT_MAX_N (allocating `pixel` path;
+    // the workspace is unused).
+    let results = map_pixels(data, pixel_count, band_count, |ts, _ws| {
+        let result = pixel(ts, years, params);
         // Net spectral change: last fitted value minus first
         let fitted = &result.fitted;
-        magnitude_out[px] = fitted[fitted.len() - 1] - fitted[0];
+        let mag = fitted[fitted.len() - 1] - fitted[0];
         // Peak-to-trough over the full fitted trajectory (standard disturbance
         // depth) — same definition as pixel_summary / extract.py.
         // Only computed for fitted pixels (>= min_observations_needed valid);
-        // under-observed pixels leave ptt at the NaN init so they mask out.
+        // under-observed pixels keep NaN so they mask out.
         let n_valid_px = ts.iter().filter(|v| !v.is_nan()).count();
+        let mut ptt = f32::NAN;
         if n_valid_px >= params.min_observations_needed {
             let mut peak_idx = 0usize;
             let mut trough_idx = 0usize;
@@ -1101,7 +1121,7 @@ pub fn flat(
                 if v > peak_val { peak_val = v; peak_idx = i; }
                 if v < trough_val { trough_val = v; trough_idx = i; }
             }
-            ptt_out[px] = if trough_idx <= peak_idx { 0.0 } else { trough_val - peak_val };
+            ptt = if trough_idx <= peak_idx { 0.0 } else { trough_val - peak_val };
         }
         // Year of greatest disturbance
         let mut max_mag: f32 = 0.0;
@@ -1112,15 +1132,14 @@ pub fn flat(
                 dist_year = seg.start_year as f32;
             }
         }
-        year_out[px] = dist_year;
-        rmse_out[px] = result.rmse;
-    }
+        (mag, dist_year, result.rmse, ptt)
+    });
 
     let mut out = Vec::with_capacity(pixel_count * 4);
-    out.extend_from_slice(&magnitude_out);
-    out.extend_from_slice(&year_out);
-    out.extend_from_slice(&rmse_out);
-    out.extend_from_slice(&ptt_out);
+    out.extend(results.iter().map(|r| r.0));
+    out.extend(results.iter().map(|r| r.1));
+    out.extend(results.iter().map(|r| r.2));
+    out.extend(results.iter().map(|r| r.3));
     out
 }
 
@@ -1143,31 +1162,25 @@ pub fn ftvdiff_flat(
     target_year: i32,
     params: &LandTrendrParams,
 ) -> Vec<f32> {
-    let mut out = vec![f32::NAN; pixel_count];
+    let all_nan = || vec![f32::NAN; pixel_count];
     let idx = match years.iter().position(|&y| y == target_year) {
         Some(i) if i >= 1 => i,
-        _ => return out, // target year absent or has no prior year -> all NaN
+        _ => return all_nan(), // target year absent or has no prior year -> all NaN
     };
     if band_count > LT_MAX_N {
-        return out; // the validated fast-path fit only supports band_count <= LT_MAX_N
+        return all_nan(); // the validated fast-path fit only supports band_count <= LT_MAX_N
     }
     // Use the SAME fast-path fit as flat (despike -> vertices -> segment
     // fit, leaving the fitted trajectory in ws.fitted). pixel is a
     // separate, over-smoothing path — do not use it here.
-    let mut ws = LandTrendrWorkspace::new();
-    let mut ts = vec![0.0f32; band_count];
-    for px in 0..pixel_count {
-        for t in 0..band_count {
-            ts[t] = data[t * pixel_count + px];
-        }
+    map_pixels(data, pixel_count, band_count, |ts, ws| {
         let n_valid = ts.iter().filter(|v| !v.is_nan()).count();
         if n_valid < params.min_observations_needed {
-            continue; // leave NaN
+            return f32::NAN;
         }
-        pixel_core(&ts, years, band_count, params, &mut ws);
-        out[px] = ws.fitted[idx] - ws.fitted[idx - 1];
-    }
-    out
+        pixel_core(ts, years, band_count, params, ws);
+        ws.fitted[idx] - ws.fitted[idx - 1]
+    })
 }
 
 /// Windowed LandTrendr loss magnitude around a target year (loss = a fitted DECREASE).
@@ -1184,33 +1197,27 @@ pub fn loss_window(
     data: &[f32], pixel_count: usize, band_count: usize, years: &[i32],
     target_year: i32, half_window: usize, params: &LandTrendrParams,
 ) -> Vec<f32> {
-    let mut out = vec![f32::NAN; pixel_count];
+    let all_nan = || vec![f32::NAN; pixel_count];
     let idx = match years.iter().position(|&y| y == target_year) {
         Some(i) if i >= 1 => i,
-        _ => return out,
+        _ => return all_nan(),
     };
     if band_count > LT_MAX_N {
-        return out;
+        return all_nan();
     }
     let lo = idx.saturating_sub(half_window).max(1);
     let hi = (idx + half_window).min(band_count - 1);
-    let mut ws = LandTrendrWorkspace::new();
-    let mut ts = vec![0.0f32; band_count];
-    for px in 0..pixel_count {
-        for t in 0..band_count {
-            ts[t] = data[t * pixel_count + px];
-        }
+    map_pixels(data, pixel_count, band_count, |ts, ws| {
         if ts.iter().filter(|v| !v.is_nan()).count() < params.min_observations_needed {
-            continue;
+            return f32::NAN;
         }
-        pixel_core(&ts, years, band_count, params, &mut ws);
+        pixel_core(ts, years, band_count, params, ws);
         let mut loss = 0.0f32;
         for y in lo..=hi {
             loss += (ws.fitted[y - 1] - ws.fitted[y]).max(0.0);
         }
-        out[px] = loss;
-    }
-    out
+        loss
+    })
 }
 
 #[cfg(feature = "python")]

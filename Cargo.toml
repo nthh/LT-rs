@@ -10,13 +10,17 @@ name = "landtrendr"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = []
+default = ["parallel"]
+# Rayon across pixels in the raster functions. Default-on; disable
+# (--no-default-features) for single-threaded targets such as wasm32.
+parallel = ["dep:rayon"]
 python = ["dep:pyo3", "dep:numpy"]
 
 [dependencies]
 # abi3-py310: one wheel covers CPython >=3.10 (incl. 3.14), not one per version.
 pyo3 = { version = "0.28", features = ["extension-module", "abi3-py310"], optional = true }
 numpy = { version = "0.28", optional = true }
+rayon = { version = "1.10", optional = true }
 
 [profile.release]
 opt-level = 3
