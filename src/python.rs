@@ -13,7 +13,8 @@ use pyo3::prelude::*;
 use crate::{
     flat as core_flat, ftvdiff_flat as core_ftvdiff,
     loss_window as core_loss_window, pixel as core_pixel,
-    pixel_debug as core_pixel_debug, LandTrendrParams,
+    pixel_debug as core_pixel_debug, segments as core_segments,
+    segments_flat as core_segments_flat, LandTrendrParams, SEGMENT_COLS,
 };
 
 fn params(
@@ -226,6 +227,69 @@ fn loss_window<'py>(
     Ok(PyArray1::from_vec(py, out).into())
 }
 
+/// Per-pixel segment table (standalone analog of GEE `getSegmentData`).
+///
+/// Returns an (n_segments, 7) array, one row per fitted segment in vertex
+/// order, columns [start_year, end_year, start_val, end_val, magnitude,
+/// duration, rate]. Empty (0, 7) when the pixel is under-observed.
+#[pyfunction]
+#[pyo3(signature = (values, years, max_segments=6, spike_threshold=0.9, recovery_threshold=0.25, p_value_threshold=0.05, best_model_proportion=0.75, min_observations_needed=6, vertex_count_overshoot=3, prevent_one_year_recovery=true))]
+fn segments<'py>(
+    py: Python<'py>,
+    values: PyReadonlyArray1<'py, f32>,
+    years: PyReadonlyArray1<'py, i32>,
+    max_segments: usize,
+    spike_threshold: f32,
+    recovery_threshold: f32,
+    p_value_threshold: f64,
+    best_model_proportion: f64,
+    min_observations_needed: usize,
+    vertex_count_overshoot: usize,
+    prevent_one_year_recovery: bool,
+) -> PyResult<Py<PyArray2<f32>>> {
+    let p = params(
+        max_segments, spike_threshold, recovery_threshold, p_value_threshold,
+        best_model_proportion, min_observations_needed, vertex_count_overshoot,
+        prevent_one_year_recovery,
+    );
+    let (rows, n) = core_segments(values.as_slice()?, years.as_slice()?, &p);
+    Ok(PyArray1::from_vec(py, rows).reshape([n, SEGMENT_COLS])?.into())
+}
+
+/// Raster-stack segment tables, NaN-padded to a fixed shape.
+///
+/// `data` has shape (n_years, n_pixels). Returns (n_pixels, max_segments, 7):
+/// for each pixel, up to `max_segments` segment rows (columns as in `segments`),
+/// remaining rows NaN. Parallelizes across pixels like `raster_summary`.
+#[pyfunction]
+#[pyo3(signature = (data, years, max_segments=6, spike_threshold=0.9, recovery_threshold=0.25, p_value_threshold=0.05, best_model_proportion=0.75, min_observations_needed=6, vertex_count_overshoot=3, prevent_one_year_recovery=true))]
+fn raster_segments<'py>(
+    py: Python<'py>,
+    data: PyReadonlyArray2<'py, f32>,
+    years: PyReadonlyArray1<'py, i32>,
+    max_segments: usize,
+    spike_threshold: f32,
+    recovery_threshold: f32,
+    p_value_threshold: f64,
+    best_model_proportion: f64,
+    min_observations_needed: usize,
+    vertex_count_overshoot: usize,
+    prevent_one_year_recovery: bool,
+) -> PyResult<Py<numpy::PyArray3<f32>>> {
+    let p = params(
+        max_segments, spike_threshold, recovery_threshold, p_value_threshold,
+        best_model_proportion, min_observations_needed, vertex_count_overshoot,
+        prevent_one_year_recovery,
+    );
+    let ys = years.as_slice()?;
+    let mut owned = Vec::new();
+    let (stack, pixel_count, band_count) = stack_slice(&data, ys.len(), &mut owned)?;
+    let out = core_segments_flat(stack, pixel_count, band_count, ys, &p);
+    Ok(PyArray1::from_vec(py, out)
+        .reshape([pixel_count, max_segments, SEGMENT_COLS])?
+        .into())
+}
+
 #[pymodule]
 fn landtrendr(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pixel, m)?)?;
@@ -233,5 +297,7 @@ fn landtrendr(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(raster_summary, m)?)?;
     m.add_function(wrap_pyfunction!(ftvdiff, m)?)?;
     m.add_function(wrap_pyfunction!(loss_window, m)?)?;
+    m.add_function(wrap_pyfunction!(segments, m)?)?;
+    m.add_function(wrap_pyfunction!(raster_segments, m)?)?;
     Ok(())
 }

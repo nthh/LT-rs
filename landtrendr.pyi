@@ -89,3 +89,46 @@ def loss_window(
     fitted drops over [target_year - half_window, target_year + half_window].
     `data` has shape (n_years, n_pixels); returns n_pixels non-negative values,
     NaN where invalid. half_window=0 is the single-year loss."""
+
+def segments(
+    values: NDArray[np.float32],
+    years: NDArray[np.int32],
+    max_segments: int = 6,
+    spike_threshold: float = 0.9,
+    recovery_threshold: float = 0.25,
+    p_value_threshold: float = 0.05,
+    best_model_proportion: float = 0.75,
+    min_observations_needed: int = 6,
+    vertex_count_overshoot: int = 3,
+    prevent_one_year_recovery: bool = True,
+) -> NDArray[np.float32]:
+    """Per-pixel segment table (standalone analog of GEE getSegmentData).
+
+    Returns an (n_segments, 7) array, one row per fitted segment in vertex
+    order, columns [start_year, end_year, start_val, end_val, magnitude,
+    duration, rate]. Empty (0, 7) when the pixel is under-observed.
+
+    Note: the fitted trajectory and dominant disturbance year track LT-IDL/GEE
+    closely, but the port's F-test model selection is more aggressive at pruning
+    vertices — it typically returns 1-2 FEWER segments than IDL/GEE on the same
+    pixel. Use for the port's own change attribution, not as a vertex-for-vertex
+    replica of the reference segment decomposition."""
+
+def raster_segments(
+    data: NDArray[np.float32],
+    years: NDArray[np.int32],
+    max_segments: int = 6,
+    spike_threshold: float = 0.9,
+    recovery_threshold: float = 0.25,
+    p_value_threshold: float = 0.05,
+    best_model_proportion: float = 0.75,
+    min_observations_needed: int = 6,
+    vertex_count_overshoot: int = 3,
+    prevent_one_year_recovery: bool = True,
+) -> NDArray[np.float32]:
+    """Raster-stack segment tables, NaN-padded to a fixed shape.
+
+    `data` has shape (n_years, n_pixels). Returns (n_pixels, max_segments, 7):
+    per pixel, up to max_segments segment rows (columns as in `segments`),
+    remaining rows NaN. Parallelizes across pixels. See `segments` on how the
+    decomposition relates to the IDL/GEE reference."""

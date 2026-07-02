@@ -5,7 +5,7 @@
 //! native GEE LandTrendr — see README "Validation". Any change that perturbs
 //! them is a behavior change and must be re-validated, not just committed.
 
-use landtrendr::{flat, pixel, LandTrendrParams};
+use landtrendr::{flat, pixel, segments, LandTrendrParams, SEGMENT_COLS};
 
 const YEARS: [i32; 33] = [
     1984, 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
@@ -58,6 +58,32 @@ fn reference_pixel_snapshot() {
             "reference pixel"
         );
     }
+}
+
+#[test]
+fn segments_match_reference_vertices() {
+    // Segment table must be consistent with the validated vertices/fitted:
+    // one row per gap between consecutive breakpoints, contiguous in year,
+    // with values read off the fitted trajectory.
+    let (rows, n) = segments(&NBR, &YEARS, &LandTrendrParams::default());
+    let vy = [1984, 1985, 2000, 2001, 2002, 2008, 2016]; // validated breakpoints
+    assert_eq!(n, vy.len() - 1, "segment count != vertices-1");
+    assert_eq!(rows.len(), n * SEGMENT_COLS);
+
+    for i in 0..n {
+        let r = &rows[i * SEGMENT_COLS..(i + 1) * SEGMENT_COLS];
+        let (sy, ey, sv, ev, mag, dur, rate) =
+            (r[0], r[1], r[2], r[3], r[4], r[5], r[6]);
+        assert_eq!(sy as i32, vy[i], "segment {i} start year");
+        assert_eq!(ey as i32, vy[i + 1], "segment {i} end year");
+        assert!((mag - (ev - sv)).abs() < 1e-5, "magnitude != end-start");
+        assert_eq!(dur as i32, vy[i + 1] - vy[i], "duration");
+        assert!((rate - mag / dur).abs() < 1e-4, "rate != mag/duration");
+    }
+    // The clearcut segment (2001->2002) is the big NBR drop.
+    let drop = &rows[3 * SEGMENT_COLS..4 * SEGMENT_COLS];
+    assert_eq!(drop[0] as i32, 2001);
+    assert!(drop[4] < -0.5, "clearcut magnitude too small: {}", drop[4]);
 }
 
 #[test]

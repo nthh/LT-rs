@@ -1220,5 +1220,76 @@ pub fn loss_window(
     })
 }
 
+/// Number of columns per segment row emitted by `segments` / `segments_flat`:
+/// [start_year, end_year, start_val, end_val, magnitude, duration, rate].
+pub const SEGMENT_COLS: usize = 7;
+
+/// Per-pixel segment table (the standalone analog of GEE `getSegmentData`).
+///
+/// Runs the same fast-path fit as `flat` (NOT the over-smoothing `pixel` path),
+/// then converts the selected model's vertices into one row per segment. Returns
+/// `(rows, n_segments)`: a flat `n_segments * SEGMENT_COLS` slice, row-major, in
+/// vertex order. Empty when the pixel is under-observed. Column order matches
+/// `SegmentInfo`'s fields; years and duration are stored as f32 (exact for the
+/// integer year range).
+pub fn segments(values: &[f32], years: &[i32], params: &LandTrendrParams) -> (Vec<f32>, usize) {
+    let r = pixel(values, years, params);
+    let mut out = Vec::with_capacity(r.segments.len() * SEGMENT_COLS);
+    for s in &r.segments {
+        out.extend_from_slice(&[
+            s.start_year as f32, s.end_year as f32, s.start_val, s.end_val,
+            s.magnitude, s.duration as f32, s.rate,
+        ]);
+    }
+    let n = r.segments.len();
+    (out, n)
+}
+
+/// Raster-stack segment tables, NaN-padded to a fixed shape.
+///
+/// Returns a flat `pixel_count * max_segments * SEGMENT_COLS` slice laid out as
+/// `(pixel_count, max_segments, SEGMENT_COLS)`: for each pixel, up to
+/// `max_segments` segment rows (see `SEGMENT_COLS`), remaining rows filled with
+/// NaN. Uses the fast-path fit and parallelizes across pixels like `flat`. A
+/// pixel yields at most `max_segments` segments by construction, so the padding
+/// width never truncates a real segment.
+pub fn segments_flat(
+    data: &[f32], pixel_count: usize, band_count: usize,
+    years: &[i32], params: &LandTrendrParams,
+) -> Vec<f32> {
+    let max_seg = params.max_segments;
+    let stride = max_seg * SEGMENT_COLS;
+    if band_count > LT_MAX_N {
+        return vec![f32::NAN; pixel_count * stride];
+    }
+    let rows: Vec<Vec<f32>> = map_pixels(data, pixel_count, band_count, |ts, ws| {
+        let mut row = vec![f32::NAN; stride];
+        if ts.iter().filter(|v| !v.is_nan()).count() < params.min_observations_needed {
+            return row;
+        }
+        let selected = pixel_core(ts, years, band_count, params, ws);
+        let nv = ws.cand_n_verts[selected];
+        let verts = &ws.cand_verts[selected][..nv];
+        for (si, w) in verts.windows(2).take(max_seg).enumerate() {
+            let (a, b) = (w[0], w[1]);
+            let (sy, ey) = (years[a], years[b]);
+            let (sv, ev) = (ws.fitted[a], ws.fitted[b]);
+            let mag = ev - sv;
+            let dur = ey - sy;
+            let rate = if dur > 0 { mag / dur as f32 } else { 0.0 };
+            let base = si * SEGMENT_COLS;
+            row[base..base + SEGMENT_COLS].copy_from_slice(&[
+                sy as f32, ey as f32, sv, ev, mag, dur as f32, rate,
+            ]);
+        }
+        row
+    });
+    let mut out = Vec::with_capacity(pixel_count * stride);
+    for r in rows {
+        out.extend_from_slice(&r);
+    }
+    out
+}
+
 #[cfg(feature = "python")]
 mod python;
