@@ -31,24 +31,26 @@ fn reference_pixel_snapshot() {
         .zip(&r.is_vertex)
         .filter_map(|(&y, &v)| v.then_some(y))
         .collect();
+    // Vertex years match LT-IDL (GDL) exactly on this pixel, and the fitted
+    // trajectory agrees with IDL to within 8 NBRx1000 (see idl-harness/).
     assert_eq!(
         vertex_years,
-        vec![1984, 1985, 2000, 2001, 2002, 2008, 2016],
+        vec![1984, 2000, 2002, 2016],
         "breakpoint years changed"
     );
 
     assert!(
-        (r.rmse - 0.053808).abs() < 1e-5,
+        (r.rmse - 0.081282).abs() < 1e-5,
         "rmse changed: {}",
         r.rmse
     );
 
     const EXPECTED_FITTED: [f32; 33] = [
-        0.581876, 0.710444, 0.722324, 0.734203, 0.746082, 0.757961, 0.769840,
-        0.781719, 0.793598, 0.805477, 0.817356, 0.829235, 0.841114, 0.852993,
-        0.864872, 0.876751, 0.888630, 0.541358, -0.051705, 0.050339, 0.152383,
-        0.254428, 0.356472, 0.458516, 0.560560, 0.591347, 0.622133, 0.652920,
-        0.683707, 0.714493, 0.745280, 0.776067, 0.806853,
+        0.763575, 0.769852, 0.776128, 0.782405, 0.788681, 0.794958, 0.801234,
+        0.807511, 0.813787, 0.820064, 0.826340, 0.832617, 0.838893, 0.845170,
+        0.851446, 0.857723, 0.863999, 0.433190, 0.002380, 0.069584, 0.136788,
+        0.203993, 0.271197, 0.338401, 0.405606, 0.472810, 0.540014, 0.607219,
+        0.674423, 0.741627, 0.808831, 0.876036, 0.943240,
     ];
     for (i, (got, want)) in r.fitted.iter().zip(&EXPECTED_FITTED).enumerate() {
         assert!(
@@ -66,7 +68,7 @@ fn segments_match_reference_vertices() {
     // one row per gap between consecutive breakpoints, contiguous in year,
     // with values read off the fitted trajectory.
     let (rows, n) = segments(&NBR, &YEARS, &LandTrendrParams::default());
-    let vy = [1984, 1985, 2000, 2001, 2002, 2008, 2016]; // validated breakpoints
+    let vy = [1984, 2000, 2002, 2016]; // validated breakpoints (match LT-IDL)
     assert_eq!(n, vy.len() - 1, "segment count != vertices-1");
     assert_eq!(rows.len(), n * SEGMENT_COLS);
 
@@ -80,9 +82,10 @@ fn segments_match_reference_vertices() {
         assert_eq!(dur as i32, vy[i + 1] - vy[i], "duration");
         assert!((rate - mag / dur).abs() < 1e-4, "rate != mag/duration");
     }
-    // The clearcut segment (2001->2002) is the big NBR drop.
-    let drop = &rows[3 * SEGMENT_COLS..4 * SEGMENT_COLS];
-    assert_eq!(drop[0] as i32, 2001);
+    // The clearcut segment (2000->2002) is the big NBR drop.
+    let drop = &rows[SEGMENT_COLS..2 * SEGMENT_COLS];
+    assert_eq!(drop[0] as i32, 2000);
+    assert_eq!(drop[1] as i32, 2002);
     assert!(drop[4] < -0.5, "clearcut magnitude too small: {}", drop[4]);
 }
 
@@ -90,7 +93,7 @@ fn segments_match_reference_vertices() {
 fn flat_matches_pixel_on_reference() {
     // `flat` summary bands [net_mag, year, rmse, peak_to_trough] for the same pixel.
     let out = flat(&NBR, 1, YEARS.len(), &YEARS, &LandTrendrParams::default());
-    let expected = [0.224977f32, 2001.0, 0.053808, -0.940335];
+    let expected = [0.179665f32, 2000.0, 0.081282, 0.0];
     assert_eq!(out.len(), 4);
     for (i, (got, want)) in out.iter().zip(&expected).enumerate() {
         assert!(
@@ -114,7 +117,7 @@ fn flat_layout_is_band_major() {
     }
     let out = flat(&stack, 2, n, &YEARS, &LandTrendrParams::default());
     assert_eq!(out.len(), 8);
-    let expected = [0.224977f32, 2001.0, 0.053808, -0.940335];
+    let expected = [0.179665f32, 2000.0, 0.081282, 0.0];
     for band in 0..4 {
         for px in 0..2 {
             let got = out[band * 2 + px];

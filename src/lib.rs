@@ -560,7 +560,15 @@ fn fit_segments_anchored(
     }
 }
 
-/// Identify vertices using iterative max-residual. Zero allocation.
+/// Identify vertices, faithful to LT-IDL `find_vertices` + `score_segments` +
+/// `split_series` (tbcd_v2.pro:171/123/201). Each round: score every segment by
+/// its MEAN squared residual (SSE / span, IDL `score_segments`), split the
+/// WORST-scoring segment at its max-|residual| interior point (IDL
+/// `split_series`), and if that segment has no valid interior point, exclude it
+/// and try the next-worst. Normalizing residual by segment length is what makes
+/// IDL distribute breakpoints to consistently poor-fitting stretches rather than
+/// chase isolated spikes — a plain global-max-residual scan diverges here. Zero
+/// allocation.
 fn detect_vertices(
     values: &[f32], years: &[i32], n: usize,
     max_segments: usize, overshoot: usize,
@@ -572,30 +580,57 @@ fn detect_vertices(
     let mut nv = 2usize;
 
     while nv < target {
-        let mut best_residual = -1.0f64;
-        let mut best_idx: Option<usize> = None;
-        for s in 0..nv - 1 {
-            let seg_start = ws.vertices[s];
-            let seg_end = ws.vertices[s + 1];
-            if seg_end - seg_start <= 1 { continue; }
-            let (slope, intercept) = fit_line_coeffs(values, years, seg_start, seg_end);
-            for i in (seg_start + 1)..seg_end {
-                let fitted = intercept + slope * years[i] as f64;
-                let residual = (values[i] as f64 - fitted).abs();
-                if residual > best_residual {
-                    best_residual = residual;
-                    best_idx = Some(i);
+        // Pick the max-MSE segment that yields a valid split, skipping any whose
+        // interior has no residual (IDL resets mses[s]=0 and retries).
+        let mut excluded = [false; LT_MAX_VERTS];
+        let mut chosen_idx: Option<usize> = None;
+        loop {
+            let mut max_mse = 0.0f64;
+            let mut s_sel: Option<usize> = None;
+            for s in 0..nv - 1 {
+                if excluded[s] { continue; }
+                let (a, b) = (ws.vertices[s], ws.vertices[s + 1]);
+                let span = (b - a + 1) as f64;
+                if span <= 2.0 { continue; } // IDL score_segments: only span > 2
+                let (slope, intercept) = fit_line_coeffs(values, years, a, b);
+                let mut sse = 0.0f64;
+                for i in a..=b {
+                    let d = values[i] as f64 - (intercept + slope * years[i] as f64);
+                    sse += d * d;
+                }
+                let mse = sse / span;
+                if mse > max_mse {
+                    max_mse = mse;
+                    s_sel = Some(s);
                 }
             }
-        }
-        match best_idx {
-            Some(idx) if best_residual > 0.0 => {
-                let mut exists = false;
-                for i in 0..nv {
-                    if ws.vertices[i] == idx { exists = true; break; }
+            let s = match s_sel {
+                Some(s) if max_mse > 0.0 => s,
+                _ => break, // no splittable segment left
+            };
+            // split_series: max |residual| within the segment, endpoints excluded.
+            let (a, b) = (ws.vertices[s], ws.vertices[s + 1]);
+            let (slope, intercept) = fit_line_coeffs(values, years, a, b);
+            let mut best_r = 0.0f64;
+            let mut best_i: Option<usize> = None;
+            for i in (a + 1)..b {
+                let r = (values[i] as f64 - (intercept + slope * years[i] as f64)).abs();
+                if r > best_r {
+                    best_r = r;
+                    best_i = Some(i);
                 }
-                if exists { break; }
-                // Insert in sorted position
+            }
+            match best_i {
+                Some(idx) if best_r > 0.0 => {
+                    chosen_idx = Some(idx);
+                    break;
+                }
+                _ => excluded[s] = true, // no interior point; try next-worst segment
+            }
+        }
+        match chosen_idx {
+            Some(idx) => {
+                // Insert in sorted position.
                 let mut pos = nv;
                 for i in 0..nv {
                     if ws.vertices[i] > idx { pos = i; break; }
@@ -605,7 +640,7 @@ fn detect_vertices(
                 ws.vertices[pos] = idx;
                 nv += 1;
             }
-            _ => break,
+            None => break,
         }
     }
 

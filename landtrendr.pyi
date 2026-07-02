@@ -108,12 +108,11 @@ def segments(
     order, columns [start_year, end_year, start_val, end_val, magnitude,
     duration, rate]. Empty (0, 7) when the pixel is under-observed.
 
-    Note: the fitted trajectory and dominant disturbance year track LT-IDL/GEE
-    closely, and segment VALUES match where the vertex sets agree. On some pixels
-    the port's F-test model selection is more parsimonious and returns up to ~2
-    FEWER segments (it keeps the dominant disturbance but drops minor intermediate
-    breakpoints). Treat as the port's own change attribution, not a guaranteed
-    vertex-for-vertex replica of the reference decomposition."""
+    Segmentation tracks LT-IDL closely — on the bundled validation pixels the
+    vertex years match IDL exactly and fitted values agree to within ~8 NBRx1000
+    (see idl-harness/). Values are read off the fitted trajectory, so a segment's
+    magnitude reflects the fit, which on a fast recovery can overshoot the
+    observed plateau exactly as IDL's anchored fit does."""
 
 def raster_segments(
     data: NDArray[np.float32],

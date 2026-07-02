@@ -76,16 +76,17 @@ per-pixel year of greatest disturbance (disturbed-pixel IoU + overall agreement)
 
 | site | land cover | IoU rust–GEE | IoU IDL–GEE | IoU IDL–rust | overall |
 |---|---|---|---|---|---|
-| Oregon Coast Range | forest | 0.98 | 0.98 | 0.99 | 0.98 |
-| central Iowa | cropland | 0.60 | 0.69 | 0.67 | 0.95 |
+| Oregon Coast Range | forest | 0.98 | 0.98 | 1.00 | 0.98 |
+| central Iowa | cropland | 0.61 | 0.69 | 0.75 | 0.95 |
 | northern Nevada | arid / shrub | — (no events) | — | — | 1.00 |
 
 ![LT-IDL vs LT-GEE vs LT-rs year-of-disturbance — Oregon Coast Range forest](images/forest_idl_gee_rust.png)
 ![LT-IDL vs LT-GEE vs LT-rs year-of-disturbance — central Iowa cropland](images/cropland_idl_gee_rust.png)
 
-Forest matches closely on all three. On cropland even IDL and GEE only agree at 0.69 —
-annual harvest cycles are marginal signals for LandTrendr — and LT-rs tracks IDL to
-0.67, near that intrinsic ceiling; arid has no disturbance to find, so all three agree.
+On forest LT-rs reproduces the IDL year-of-disturbance map exactly (IoU 1.00). On
+cropland even IDL and GEE only agree at 0.69 — annual harvest cycles are marginal
+signals for LandTrendr — yet LT-rs tracks the IDL reference at 0.75, above that
+IDL–GEE ceiling; arid has no disturbance to find, so all three agree.
 The 3-panel maps come from `python/idl_vs_gee_vs_rust_map.py`, which runs the original
 IDL under GDL — see [`idl-harness/README.md`](idl-harness/README.md) for the one-time setup.
 
