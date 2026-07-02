@@ -871,25 +871,29 @@ fn pixel_core(
         year_range, val_range, ws,
     );
 
-    // prevent_one_year_recovery: a disturbance bottom immediately followed by a
-    // single-year recovery is almost always residual cloud/shadow rather than real
-    // regrowth (eMapR LT-GEE runParam). Drop the vertex that ENDS such a 1-year
-    // recovery so the recovery is forced to span >=2 years (loss-down NBR: a drop
-    // into v[i] then a rise out of v[i] over one year). Done on the vertex set
-    // before model fitting, so every candidate inherits the constraint.
+    // prevent_one_year_recovery: suppress the sawtooth artifact where a
+    // disturbance bottom is followed by a single-year rebound that then reverses
+    // — a cloud/shadow spike, not real regrowth (eMapR LT-GEE runParam). Drop the
+    // vertex c that ENDS such a 1-year recovery ONLY when it is a local peak, i.e.
+    // the trajectory turns back down after c (rise into c, fall out of c). When the
+    // recovery CONTINUES past c (rise out of c as well), c is a genuine mid-recovery
+    // breakpoint that both LT-IDL and native GEE keep — removing it over-prunes.
+    // Done on the vertex set before model fitting, so every candidate inherits it.
     // The endpoint vertex (n-1) is never removed — IDL segmentation always
     // spans the full series, and dropping it would leave fitted[n-1] unwritten
     // (net_change would then read a stale/zeroed workspace cell).
     if params.prevent_one_year_recovery {
         let mut i = 1;
         while i + 2 < n_verts {
-            let (a, b, c) = (ws.vertices[i - 1], ws.vertices[i], ws.vertices[i + 1]);
+            let (a, b, c, d) =
+                (ws.vertices[i - 1], ws.vertices[i], ws.vertices[i + 1], ws.vertices[i + 2]);
             let drop_in = despiked[b] < despiked[a];          // disturbance into the bottom
             let rise_out = despiked[c] > despiked[b];          // recovery out of the bottom
             let one_year = years[c] - years[b] == 1;
-            if drop_in && rise_out && one_year {
+            let reverses = despiked[d] < despiked[c];          // trajectory turns back down after c
+            if drop_in && rise_out && one_year && reverses {
                 for k in (i + 1)..n_verts - 1 { ws.vertices[k] = ws.vertices[k + 1]; }
-                n_verts -= 1;                                  // removed the 1-yr recovery endpoint
+                n_verts -= 1;                                  // removed the spurious 1-yr rebound peak
             } else {
                 i += 1;
             }

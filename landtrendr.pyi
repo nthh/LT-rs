@@ -109,10 +109,11 @@ def segments(
     duration, rate]. Empty (0, 7) when the pixel is under-observed.
 
     Note: the fitted trajectory and dominant disturbance year track LT-IDL/GEE
-    closely, but the port's F-test model selection is more aggressive at pruning
-    vertices — it typically returns 1-2 FEWER segments than IDL/GEE on the same
-    pixel. Use for the port's own change attribution, not as a vertex-for-vertex
-    replica of the reference segment decomposition."""
+    closely, and segment VALUES match where the vertex sets agree. On some pixels
+    the port's F-test model selection is more parsimonious and returns up to ~2
+    FEWER segments (it keeps the dominant disturbance but drops minor intermediate
+    breakpoints). Treat as the port's own change attribution, not a guaranteed
+    vertex-for-vertex replica of the reference decomposition."""
 
 def raster_segments(
     data: NDArray[np.float32],
