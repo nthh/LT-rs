@@ -656,7 +656,6 @@ fn identify_vertices(
 fn fit_and_select(
     values: &[f32], years: &[i32], n: usize,
     n_verts: usize, params: &LandTrendrParams,
-    year_range: f64, val_range: f64,
     ws: &mut LandTrendrWorkspace,
 ) -> usize {
     let n_valid = values[..n].iter().filter(|v| !v.is_nan()).count();
@@ -889,10 +888,7 @@ fn pixel_core(
         }
     }
 
-    let selected = fit_and_select(
-        &despiked, years, n,
-        n_verts, params, year_range, val_range, ws,
-    );
+    let selected = fit_and_select(&despiked, years, n, n_verts, params, ws);
 
     // Recovery clamp: after fitting, constrain recovery segment slopes.
     // Clamp vertex endpoints so rate <= recovery_threshold, re-interpolate.

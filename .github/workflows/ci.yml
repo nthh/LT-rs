@@ -1,0 +1,48 @@
+name: CI
+
+# Lint + numerical regression tests (tests/regression.rs freezes the
+# IDL/GEE-validated kernel output) + a wheel build/import smoke test.
+# No `cargo fmt --check`: the kernel predates rustfmt and reformatting it
+# would bury the validated numerics in diff noise.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy (deny warnings)
+        run: cargo clippy --features python --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test
+
+  wheel-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          args: --release --out dist --features python
+      - name: Import and run the kernel
+        run: |
+          pip install numpy dist/*.whl
+          python - <<'EOF'
+          import numpy as np, landtrendr as lt
+          box = np.load("data/nbr_1984_2016.npz")
+          nbr = np.ascontiguousarray(box["annual"][:, 26, 26], np.float32)
+          fitted, is_vertex, rmse = lt.pixel(nbr, box["years"])
+          bp = list(box["years"][is_vertex.astype(bool)])
+          assert bp == [1984, 1985, 2000, 2001, 2002, 2008, 2016], bp
+          print("wheel OK — breakpoints", bp, "rmse", rmse)
+          EOF
