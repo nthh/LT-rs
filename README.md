@@ -72,7 +72,7 @@ per-pixel year of greatest disturbance (disturbed-pixel IoU + overall agreement)
 | site | land cover | IoU rust–GEE | IoU IDL–GEE | IoU IDL–rust | overall |
 |---|---|---|---|---|---|
 | Oregon Coast Range | forest | 0.98 | 0.98 | 0.99 | 0.98 |
-| central Iowa | cropland | 0.61 | 0.69 | 0.67 | 0.95 |
+| central Iowa | cropland | 0.60 | 0.69 | 0.67 | 0.95 |
 | northern Nevada | arid / shrub | — (no events) | — | — | 1.00 |
 
 ![LT-IDL vs LT-GEE vs LT-rs year-of-disturbance — Oregon Coast Range forest](images/forest_idl_gee_rust.png)
