@@ -15,7 +15,7 @@ Prebuilt wheels (CPython ≥3.10, incl. 3.14) are attached to each
 [release](../../releases) — no Rust toolchain needed:
 
 ```bash
-pip install landtrendr --find-links https://github.com/nthh/LT-rs/releases/expanded_assets/v0.3.0
+pip install landtrendr --find-links https://github.com/nthh/LT-rs/releases/expanded_assets/v0.4.0
 ```
 
 ## Use

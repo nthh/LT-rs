@@ -1,6 +1,6 @@
 [package]
 name = "landtrendr"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 license = "MIT"
 description = "LandTrendr temporal segmentation — standalone Rust port, validated against the original LandTrendr-IDL and native GEE."
