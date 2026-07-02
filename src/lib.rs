@@ -821,7 +821,15 @@ fn fit_and_select(
         let ms_regr = (ss_total - ss_resid) / df_regr;
         let ms_resid = ss_resid / df_resid;
         let f_regr = if ms_regr < 1e-5 || ms_resid <= 0.0 { 1e-5 } else { ms_regr / ms_resid };
-        p_of_f[idx] = f_survival(f_regr, df_regr, df_resid).clamp(0.0, 1.0);
+        // IDL computes p_of_f = 1 - f_test1(f), where f_test1 is the LOWER F-CDF.
+        // For an extremely significant model the survival (upper tail) is below
+        // double epsilon, so `1 - lower_cdf` underflows to EXACTLY 0. pick_best_model6
+        // then ties every such model at 0 and keeps the MOST COMPLEX one. Computing
+        // the upper tail directly (f_survival) yields a distinct tiny value instead,
+        // which lets the (2-bmp) parsimony threshold wrongly prune the complex model.
+        // Replicate the subtraction so the same underflow — and the same tie — occur.
+        let lower_cdf = 1.0 - f_survival(f_regr, df_regr, df_resid);
+        p_of_f[idx] = (1.0 - lower_cdf).clamp(0.0, 1.0);
     }
 
     // pick_best_model6 (use_fstat=0): most-complex model (lowest index = most
